@@ -1,12 +1,13 @@
 <?php
+
 /*
   +------------------------------------------------------------------------+
   | Phalcon Framework                                                      |
   +------------------------------------------------------------------------+
-  | Copyright (c) 2011-2015 Phalcon Team (http://www.phalconphp.com)       |
+  | Copyright (c) 2011-2016 Phalcon Team (https://www.phalconphp.com)      |
   +------------------------------------------------------------------------+
   | This source file is subject to the New BSD License that is bundled     |
-  | with this package in the file docs/LICENSE.txt.                        |
+  | with this package in the file LICENSE.txt.                             |
   |                                                                        |
   | If you did not receive a copy of the license and are unable to         |
   | obtain it through the world-wide-web, please send an email             |
@@ -22,17 +23,17 @@ namespace Phalcon\Acl\Adapter;
 use Phalcon\Db;
 use Phalcon\Db\AdapterInterface as DbAdapter;
 use Phalcon\Acl\Adapter;
-use Phalcon\Acl\AdapterInterface;
 use Phalcon\Acl\Exception;
 use Phalcon\Acl\Resource;
 use Phalcon\Acl;
 use Phalcon\Acl\Role;
+use Phalcon\Acl\RoleInterface;
 
 /**
  * Phalcon\Acl\Adapter\Database
- * Manages ACL lists in memory
+ * Manages ACL lists in database tables
  */
-class Database extends Adapter implements AdapterInterface
+class Database extends Adapter
 {
     /**
      * @var DbAdapter
@@ -70,6 +71,12 @@ class Database extends Adapter implements AdapterInterface
     protected $rolesInherits;
 
     /**
+     * Default action for no arguments is allow
+     * @var int
+     */
+    protected $noArgumentsDefaultAction = Acl::ALLOW;
+
+    /**
      * Class constructor.
      *
      * @param  array $options Adapter config
@@ -96,18 +103,26 @@ class Database extends Adapter implements AdapterInterface
 
     /**
      * {@inheritdoc}
+     *
      * Example:
-     * <code>$acl->addRole(new Phalcon\Acl\Role('administrator'), 'consultor');</code>
-     * <code>$acl->addRole('administrator', 'consultor');</code>
+     * <code>
+     * $acl->addRole(new Phalcon\Acl\Role('administrator'), 'consultor');
+     * $acl->addRole('administrator', 'consultor');
+     * </code>
      *
      * @param  \Phalcon\Acl\Role|string $role
      * @param  string                   $accessInherits
      * @return boolean
+     * @throws \Phalcon\Acl\Exception
      */
     public function addRole($role, $accessInherits = null)
     {
-        if (!is_object($role)) {
-            $role = new Role($role);
+        if (is_string($role)) {
+            $role = new Role($role, ucwords($role) . ' Role');
+        }
+
+        if (!$role instanceof RoleInterface) {
+            throw new Exception('Role must be either an string or implement RoleInterface');
         }
 
         $exists = $this->connection->fetchOne(
@@ -138,8 +153,8 @@ class Database extends Adapter implements AdapterInterface
     /**
      * {@inheritdoc}
      *
-     * @param  string                 $roleName
-     * @param  string                 $roleToInherit
+     * @param  string $roleName
+     * @param  string $roleToInherit
      * @throws \Phalcon\Acl\Exception
      */
     public function addInherit($roleName, $roleToInherit)
@@ -243,8 +258,8 @@ class Database extends Adapter implements AdapterInterface
     /**
      * {@inheritdoc}
      *
-     * @param  string                 $resourceName
-     * @param  array|string           $accessList
+     * @param  string       $resourceName
+     * @param  array|string $accessList
      * @return boolean
      * @throws \Phalcon\Acl\Exception
      */
@@ -293,7 +308,7 @@ class Database extends Adapter implements AdapterInterface
     /**
      * {@inheritdoc}
      *
-     * @return \Phalcon\Acl\Role[]
+     * @return RoleInterface[]
      */
     public function getRoles()
     {
@@ -315,6 +330,7 @@ class Database extends Adapter implements AdapterInterface
      */
     public function dropResourceAccess($resourceName, $accessList)
     {
+        throw new \BadMethodCallException('Not implemented yet.');
     }
 
     /**
@@ -335,8 +351,9 @@ class Database extends Adapter implements AdapterInterface
      * @param string       $roleName
      * @param string       $resourceName
      * @param array|string $access
+     * @param mixed $func
      */
-    public function allow($roleName, $resourceName, $access)
+    public function allow($roleName, $resourceName, $access, $func = null)
     {
         $this->allowOrDeny($roleName, $resourceName, $access, Acl::ALLOW);
     }
@@ -359,9 +376,10 @@ class Database extends Adapter implements AdapterInterface
      * @param  string       $roleName
      * @param  string       $resourceName
      * @param  array|string $access
+     * @param  mixed $func
      * @return boolean
      */
-    public function deny($roleName, $resourceName, $access)
+    public function deny($roleName, $resourceName, $access, $func = null)
     {
         $this->allowOrDeny($roleName, $resourceName, $access, Acl::DENY);
     }
@@ -379,13 +397,13 @@ class Database extends Adapter implements AdapterInterface
      * @param string $role
      * @param string $resource
      * @param string $access
-     *
+     * @param array  $parameters
      * @return bool
      */
-    public function isAllowed($role, $resource, $access)
+    public function isAllowed($role, $resource, $access, array $parameters = null)
     {
         $sql = implode(' ', [
-            "SELECT 'allowed' FROM {$this->accessList} AS a",
+            "SELECT " . $this->connection->escapeIdentifier('allowed') . " FROM {$this->accessList} AS a",
             // role_name in:
             'WHERE roles_name IN (',
                 // given 'role'-parameter
@@ -400,7 +418,7 @@ class Database extends Adapter implements AdapterInterface
             // access_name should be given one or 'any'
             "AND access_name IN (?, '*')",
             // order be the sum of bools for 'literals' before 'any'
-            "ORDER BY (roles_name != '*')+(resources_name != '*')+(access_name != '*') DESC",
+            "ORDER BY ".$this->connection->escapeIdentifier('allowed')." DESC",
             // get only one...
             'LIMIT 1'
         ]);
@@ -419,26 +437,50 @@ class Database extends Adapter implements AdapterInterface
     }
 
     /**
+     * Returns the default ACL access level for no arguments provided
+     * in isAllowed action if there exists func for accessKey
+     *
+     * @return int
+     */
+    public function getNoArgumentsDefaultAction()
+    {
+        return $this->noArgumentsDefaultAction;
+    }
+
+    /**
+     * Sets the default access level for no arguments provided
+     * in isAllowed action if there exists func for accessKey
+     *
+     * @param int $defaultAccess Phalcon\Acl::ALLOW or Phalcon\Acl::DENY
+     */
+    public function setNoArgumentsDefaultAction($defaultAccess)
+    {
+        $this->noArgumentsDefaultAction = intval($defaultAccess);
+    }
+
+    /**
      * Inserts/Updates a permission in the access list
      *
-     * @param  string                 $roleName
-     * @param  string                 $resourceName
-     * @param  string                 $accessName
-     * @param  integer                $action
+     * @param  string  $roleName
+     * @param  string  $resourceName
+     * @param  string  $accessName
+     * @param  integer $action
      * @return boolean
      * @throws \Phalcon\Acl\Exception
      */
     protected function insertOrUpdateAccess($roleName, $resourceName, $accessName, $action)
     {
         /**
-         * Check if the access is valid in the resource
+         * Check if the access is valid in the resource unless wildcard
          */
-        $sql = "SELECT COUNT(*) FROM {$this->resourcesAccesses} WHERE resources_name = ? AND access_name = ?";
-        $exists = $this->connection->fetchOne($sql, null, [$resourceName, $accessName]);
-        if (!$exists[0]) {
-            throw new Exception(
-                "Access '{$accessName}' does not exist in resource '{$resourceName}' in ACL"
-            );
+        if ($resourceName !== '*' && $accessName !== '*') {
+            $sql = "SELECT COUNT(*) FROM {$this->resourcesAccesses} WHERE resources_name = ? AND access_name = ?";
+            $exists = $this->connection->fetchOne($sql, null, [$resourceName, $accessName]);
+            if (!$exists[0]) {
+                throw new Exception(
+                    "Access '{$accessName}' does not exist in resource '{$resourceName}' in ACL"
+                );
+            }
         }
 
         /**
@@ -475,10 +517,10 @@ class Database extends Adapter implements AdapterInterface
     /**
      * Inserts/Updates a permission in the access list
      *
-     * @param  string                 $roleName
-     * @param  string                 $resourceName
-     * @param  array|string           $access
-     * @param  integer                $action
+     * @param  string       $roleName
+     * @param  string       $resourceName
+     * @param  array|string $access
+     * @param  integer      $action
      * @throws \Phalcon\Acl\Exception
      */
     protected function allowOrDeny($roleName, $resourceName, $access, $action)

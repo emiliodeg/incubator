@@ -3,15 +3,14 @@
 namespace Phalcon\Test\Avatar;
 
 use Phalcon\Avatar\Gravatar;
-use Codeception\TestCase\Test;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 use Phalcon\Config;
-use UnitTester;
 
 /**
  * \Phalcon\Test\Avatar\GravatarTest
  * Tests for Phalcon\Avatar\Gravatar component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @author    Serghei Iakovlev <serghei@phalconphp.com>
  * @link      http://phalconphp.com/
  * @package   Phalcon\Test\Avatar
@@ -26,26 +25,6 @@ use UnitTester;
  */
 class GravatarTest extends Test
 {
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * executed before each test
-     */
-    protected function _before()
-    {
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     /**
      * @dataProvider incorrectConfigProvider
      * @expectedException \InvalidArgumentException

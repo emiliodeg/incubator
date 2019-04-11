@@ -3,18 +3,17 @@
 namespace Phalcon\Test\Db\Adapter;
 
 use Phalcon\Db\Adapter\Factory as AdaptersFactory;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
- * \Phalcon\Test\Db\Adapter\Factory
+ * \Phalcon\Test\Db\Adapter\FactoryTest
  * Tests for Phalcon\Db\Adapter\Factory component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Anton Kornilov <kachit@yandex.ru>
  * @package   Phalcon\Test\Db\Adapter
- * @group     Db
+ * @group     db
  *
  * The contents of this file are subject to the New BSD License that is
  * bundled with this package in the file docs/LICENSE.txt
@@ -25,12 +24,6 @@ use UnitTester;
  */
 class FactoryTest extends Test
 {
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
     /**
      * @var array
      */
@@ -43,19 +36,12 @@ class FactoryTest extends Test
     {
         $this->testable = [
             'adapter'  => null,
-            'host'     => 'localhost',
-            'username' => 'root',
-            'password' => '',
-            'dbname'   => 'incubator_tests',
-            'charset'  => 'utf8',
+            'host'     => env('TEST_DB_HOST', '127.0.0.1'),
+            'username' => env('TEST_DB_USER', 'incubator'),
+            'password' => env('TEST_DB_PASSWD', 'secret'),
+            'dbname'   => env('TEST_DB_NAME', 'incubator'),
+            'charset'  => env('TEST_DB_CHARSET', 'utf8'),
         ];
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
     }
 
     public function testLoadMysqlAdapter()

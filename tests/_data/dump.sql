@@ -1,3 +1,22 @@
+DROP TABLE IF EXISTS `categories`;
+CREATE TABLE `categories` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL,
+  `description` TEXT DEFAULT NULL,
+  `root` INT UNSIGNED DEFAULT NULL,
+  `lft` INT UNSIGNED NOT NULL,
+  `rgt` INT UNSIGNED NOT NULL,
+  `level` INT UNSIGNED NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `category_coordinates` (`lft`,`rgt`,`root`),
+  KEY `category_root` (`root`),
+  KEY `category_lft` (`lft`),
+  KEY `category_lft_root` (`lft`, `root`),
+  KEY `category_rgt` (`rgt`),
+  KEY `category_rgt_root` (`rgt`, `root`),
+  KEY `category_level` (`level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 DROP TABLE IF EXISTS `bug`;
 CREATE TABLE `bug` (
   `id` serial,
@@ -1223,5 +1242,51 @@ DROP TABLE IF EXISTS `roles_inherits`;
 CREATE TABLE `roles_inherits` (
   `roles_name` VARCHAR(32) NOT NULL,
   `roles_inherit` VARCHAR(32) NOT NULL,
-  PRIMARY KEY(roles_name, roles_inherit)
+  PRIMARY KEY(`roles_name`, `roles_inherit`)
 );
+
+DROP TABLE IF EXISTS `cache_data`;
+CREATE TABLE `cache_data` (
+  `key_name` VARCHAR(128) NOT NULL,
+  `data` TEXT,
+  `lifetime` INT,
+  PRIMARY KEY(`key_name`)
+);
+
+DROP TABLE IF EXISTS `robots`;
+CREATE TABLE `robots` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(70) COLLATE utf8_unicode_ci NOT NULL,
+  `type` varchar(32) COLLATE utf8_unicode_ci NOT NULL default 'mechanical',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+DROP TABLE if EXISTS `audit`;
+CREATE TABLE `audit` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_name` VARCHAR(255) NOT NULL,
+  `model_name` VARCHAR(255) NOT NULL,
+  `ipaddress` CHAR(15) NOT NULL,
+  `type` CHAR(1) NOT NULL, /* C=Create/U=Update */
+  `created_at` DATETIME NOT NULL,
+  `primary_key` TEXT DEFAULT NULL, /* for BC reasons */
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE if EXISTS `audit_detail`;
+CREATE TABLE `audit_detail` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `audit_id` BIGINT NOT NULL,
+  `field_name` VARCHAR(255) NOT NULL,
+  `old_value` TEXT DEFAULT NULL,
+  `new_value` TEXT NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE if EXISTS `sessions`;
+CREATE TABLE `sessions` (
+  session_id TEXT NOT NULL,
+  data TEXT,
+  created_at INT,
+  modified_at INT
+)ENGINE=InnoDB DEFAULT CHARSET=utf8;

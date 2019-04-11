@@ -1,19 +1,17 @@
 <?php
 
-define('INCUBATOR_FIXTURES', __DIR__ . '/_fixtures/');
+require_once realpath(dirname(dirname(__FILE__))) .'/vendor/autoload.php';
+
+(new Dotenv\Dotenv(realpath(dirname(__FILE__))))->load();
+
+require_once '_support/functions.php';
+
+error_reporting(-1);
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 
 setlocale(LC_ALL, 'en_US.utf-8');
-
-if (function_exists('mb_internal_encoding')) {
-    mb_internal_encoding('utf-8');
-}
-
-if (function_exists('mb_substitute_character')) {
-    mb_substitute_character('none');
-}
 
 if (extension_loaded('xdebug')) {
     ini_set('xdebug.cli_color', 1);
@@ -24,19 +22,15 @@ if (extension_loaded('xdebug')) {
     ini_set('xdebug.var_display_max_depth', 4);
 }
 
-if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    throw new \RuntimeException(
-        'Unable to locate autoloader. ' .
-        'Install dependencies from the project root directory to run test suite: `composer install`.'
-    );
-}
+clearstatcache();
 
-require __DIR__ . '/../vendor/autoload.php';
+$root = realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR;
 
-// Memcached
-define('TEST_MC_HOST', getenv('TEST_MC_HOST') ?: '127.0.0.1');
-define('TEST_MC_PORT', getenv('TEST_MC_PORT') ?: 11211);
+define('TESTS_PATH', $root);
+define('PROJECT_PATH', dirname(TESTS_PATH) . DIRECTORY_SEPARATOR);
+define('PATH_DATA', $root . '_data' . DIRECTORY_SEPARATOR);
+define('PATH_CACHE', $root . '_cache' . DIRECTORY_SEPARATOR);
+define('PATH_OUTPUT', $root . '_output' . DIRECTORY_SEPARATOR);
+define('INCUBATOR_FIXTURES', $root . '_fixtures' . DIRECTORY_SEPARATOR);
 
-// Beanstalk
-define('TEST_BT_HOST', getenv('TEST_BT_HOST') ?: '127.0.0.1');
-define('TEST_BT_PORT', getenv('TEST_BT_PORT') ?: 11300);
+unset($root);

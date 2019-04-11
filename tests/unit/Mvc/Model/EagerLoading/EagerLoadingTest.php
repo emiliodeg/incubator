@@ -11,17 +11,17 @@ use Phalcon\Test\Mvc\Model\EagerLoading\Stubs\Manufacturer;
 use Phalcon\Mvc\Model\EagerLoading\Loader;
 use Phalcon\Di;
 use Phalcon\DiInterface;
-use Phalcon\Mvc\Model\Metadata\Memory;
+use Phalcon\Mvc\Model\Metadata;
 use Phalcon\Mvc\Model\Manager;
 use Phalcon\Db\Adapter\Pdo\Mysql;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
+use Phalcon\Version;
 
 /**
  * \Phalcon\Test\Mvc\Model\EagerLoading\EagerLoadingTest
  * Tests for Phalcon\Mvc\Model\EagerLoading\Loader component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2017 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Óscar Enríquez
  * @package   Phalcon\Test\Mvc\Model\EagerLoading
@@ -37,12 +37,6 @@ use UnitTester;
 class EagerLoadingTest extends Test
 {
     /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
      * @var DiInterface
      */
     protected $previousDependencyInjector;
@@ -56,16 +50,16 @@ class EagerLoadingTest extends Test
 
         $di = new Di();
 
-        $di->setShared('modelsMetadata', new Memory());
+        $di->setShared('modelsMetadata', new Metadata\Memory());
         $di->setShared('modelsManager', new Manager());
         $di->setShared('db', function () {
             return new Mysql([
-                'host'     => 'localhost',
-                'port'     => '3306',
-                'username' => 'root',
-                'password' => '',
-                'dbname'   => 'incubator_tests',
-                'charset'  => 'utf8mb4',
+                'host'     => env('TEST_DB_HOST', '127.0.0.1'),
+                'username' => env('TEST_DB_USER', 'incubator'),
+                'password' => env('TEST_DB_PASSWD', 'secret'),
+                'dbname'   => env('TEST_DB_NAME', 'incubator'),
+                'charset'  => env('TEST_DB_CHARSET', 'utf8'),
+                'port'     => env('TEST_DB_PORT', 3306),
             ]);
         });
 

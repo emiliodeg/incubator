@@ -3,18 +3,17 @@
 namespace Phalcon\Test\Config;
 
 use Phalcon\Config\Loader as ConfigLoader;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
  * \Phalcon\Test\Config\LoaderTest
  * Tests for Phalcon\Config\Loader component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Anton Kornilov <kachit@yandex.ru>
  * @package   Phalcon\Test\Config
- * @group     Config
+ * @group     config
  *
  * The contents of this file are subject to the New BSD License that is
  * bundled with this package in the file docs/LICENSE.txt
@@ -25,26 +24,6 @@ use UnitTester;
  */
 class LoaderTest extends Test
 {
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * executed before each test
-     */
-    protected function _before()
-    {
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     public function testLoadPhpFileConfig()
     {
         $file = INCUBATOR_FIXTURES . 'Config/config.php';

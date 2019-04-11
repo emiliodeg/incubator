@@ -4,19 +4,18 @@ namespace Phalcon\Test\Cache\Backend;
 
 use Phalcon\Cache\Backend\Database as CacheBackend;
 use Phalcon\Cache\Frontend\Data as CacheFrontend;
-use Phalcon\Db\Adapter\Pdo\Sqlite as DbAdapter;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Db\Adapter\Pdo\Mysql as DbAdapter;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
  * \Phalcon\Test\Cache\Backend\DatabaseTest
  * Tests for Phalcon\Cache\Backend\Database component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Nikita Vershinin <endeveit@gmail.com>
  * @package   Phalcon\Test\Cache\Backend
- * @group     Cache
+ * @group     db
  *
  * The contents of this file are subject to the New BSD License that is
  * bundled with this package in the file docs/LICENSE.txt
@@ -27,27 +26,32 @@ use UnitTester;
  */
 class DatabaseTest extends Test
 {
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
     protected $key = 'DB_key';
     protected $data = 'DB_data';
 
     /**
-     * executed before each test
+     * @dataProvider incorrectDbProvider
+     * @expectedException \Phalcon\Cache\Exception
+     * @expectedExceptionMessage Parameter "db" is required and it must be an instance of Phalcon\Acl\AdapterInterface
+     * @param array $options
      */
-    protected function _before()
+    public function testShouldThrowExceptionIfDbIsMissingOrInvalid($options)
     {
+        new CacheBackend(new CacheFrontend, $options);
     }
 
-    /**
-     * executed after each test
-     */
-    protected function _after()
+    public function incorrectDbProvider()
     {
+        return [
+            [['abc' => '']],
+            [['db'  => null]],
+            [['db'  => true]],
+            [['db'  => __CLASS__]],
+            [['db'  => new \stdClass()]],
+            [['db'  => []]],
+            [['db'  => microtime(true)]],
+            [['db'  => PHP_INT_MAX]],
+        ];
     }
 
     public function testPrefixed()
@@ -69,11 +73,15 @@ class DatabaseTest extends Test
     protected function getBackend($prefix = '')
     {
         $frontend   = new CacheFrontend(['lifetime' => 10]);
-        $connection = new DbAdapter(['dbname' => ':memory:']);
-
-        // Make table structure
-        $connection->getInternalHandler()->exec(
-            'CREATE TABLE "cache_data" ("key_name" TEXT PRIMARY KEY, "data" TEXT, "lifetime" INTEGER)'
+        $connection = new DbAdapter(
+            [
+                'host'     => env('TEST_DB_HOST', '127.0.0.1'),
+                'username' => env('TEST_DB_USER', 'incubator'),
+                'password' => env('TEST_DB_PASSWD', 'secret'),
+                'dbname'   => env('TEST_DB_NAME', 'incubator'),
+                'charset'  => env('TEST_DB_CHARSET', 'utf8'),
+                'port'     => env('TEST_DB_PORT', 3306),
+            ]
         );
 
         return new CacheBackend($frontend, [

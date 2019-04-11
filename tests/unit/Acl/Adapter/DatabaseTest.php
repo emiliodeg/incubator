@@ -5,15 +5,14 @@ namespace Phalcon\Test\Acl\Adapter;
 use Phalcon\Db\AdapterInterface as DbAdapter;
 use Phalcon\Db\Adapter\Pdo\Sqlite;
 use Phalcon\Acl\Adapter\Database;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 use ReflectionProperty;
 
 /**
  * \Phalcon\Test\Acl\Adapter\DatabaseTest
  * Tests for Phalcon\Acl\Adapter\Database component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Serghei Iakovlev <serghei@phalconphp.com>
  * @package   Phalcon\Test\Acl\Adapter
@@ -30,29 +29,9 @@ class DatabaseTest extends Test
 {
     const ADAPTER_CLASS = 'Phalcon\Acl\Adapter\Database';
 
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * executed before each test
-     */
-    protected function _before()
-    {
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     protected function getConnection()
     {
-        return new Sqlite(['dbname' => 'sample.db']);
+        return new Sqlite(['dbname' => 'tests/_output/sample.db']);
     }
 
     protected function assertProtectedPropertyEquals($propertyName, $tableName, DbAdapter $connection, Database $adapter)

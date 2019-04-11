@@ -6,14 +6,13 @@ use Phalcon\Di;
 use Phalcon\Validation;
 use Codeception\Util\Stub;
 use Phalcon\Validation\Validator\Db\Uniqueness;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
  * \Phalcon\Test\Validation\Validator\Db\UniquenessTest
  * Tests for Phalcon\Validation\Validator\Db\Uniqueness component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Tomasz Ślązok <tomek@landingi.com>
  * @package   Phalcon\Test\Validation\Validator\Db
@@ -29,12 +28,6 @@ use UnitTester;
 class UniquenessTest extends Test
 {
     /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
      * @var Validation
      */
     protected $validation;
@@ -47,38 +40,38 @@ class UniquenessTest extends Test
         $this->validation = new Validation();
     }
 
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     private function getDbStub()
     {
+        codecept_debug('getDbStub');
         return Stub::makeEmpty(
             'Phalcon\Db\Adapter\Pdo',
-            array(
+            [
                 'fetchOne' => function ($sql, $fetchMode, $params) {
-                    if ($sql == 'SELECT COUNT(*) as count FROM users WHERE login = ?') {
-                        if ($params[0] == 'login_taken') {
-                            return ['count' => 1];
-                        } else {
-                            return ['count' => 0];
-                        }
+                    if (
+                        $sql !== 'SELECT COUNT(*) AS count FROM "users" WHERE "login" = ? AND "id" != ?' &&
+                        $sql !== 'SELECT COUNT(*) AS count FROM "users" WHERE "login" = ?'
+                    ) {
+                        return null;
                     }
 
-                    return null;
+                    if ($params[0] == 'login_taken') {
+                        return ['count' => 1];
+                    } else {
+                        return ['count' => 0];
+                    }
+                },
+                'escapeIdentifier' => function ($identifier) {
+                    return "\"{$identifier}\"";
                 }
-            )
+            ]
         );
     }
 
     /**
      * @expectedException        \Phalcon\Validation\Exception
-     * @expectedExceptionMessage Validator Uniquness require connection to database
+     * @expectedExceptionMessage Validator Uniqueness require connection to database
      */
-    public function testShouldCatchExceptionWhenValidateUniqunessWithoutDbAndDefaultDI()
+    public function testShouldCatchExceptionWhenValidateUniquenessWithoutDbAndDefaultDI()
     {
         $uniquenessOptions = [
             'table' => 'users',
@@ -92,15 +85,14 @@ class UniquenessTest extends Test
      * @expectedException        \Phalcon\Validation\Exception
      * @expectedExceptionMessage Validator require column option to be set
      */
-    public function testShouldCatchExceptionWhenValidateUniqunessWithoutColumnOption()
+    public function testShouldCatchExceptionWhenValidateUniquenessWithoutColumnOption()
     {
         new Uniqueness(['table' => 'users'], $this->getDbStub());
     }
 
     public function testAvailableUniquenessWithDefaultDI()
     {
-        $di = new Di();
-        $di->set('db', $this->getDbStub());
+        $this->di->set('db', $this->getDbStub());
 
         $uniquenessOptions = [
             'table' => 'users',

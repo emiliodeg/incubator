@@ -1,65 +1,89 @@
+#  Phalcon Framework
+#
+#  Copyright (c) 2011-2018 Phalcon Team (https://www.phalconphp.com)
+#
+#  This source file is subject to the New BSD License that is bundled
+#  with this package in the file LICENSE.txt.
+#
+#  If you did not receive a copy of the license and are unable to
+#  obtain it through the world-wide-web, please send an email
+#  to license@phalconphp.com so we can send you a copy immediately.
+
 language: php
 
-php:
-  - 5.4
-  - 5.5
-  - 5.6
+sudo: false
+dist: trusty
 
-sudo:
-  false
+php:
+  - 5.6
+  - 7.0
+  - 7.1
+  - 7.2
 
 services:
-  - memcached
-  - mysql
+  - redis-server
   - mongodb
+  - beanstalkd
+
+git:
+  depth: 1
+
+cache:
+  apt: true
+  ccache: true
+  timeout: 604800
+  directories:
+    - $HOME/.ccache
+    - $HOME/.composer/cache
+    - $HOME/pear
+    - $HOME/.local/lib
 
 env:
   global:
-    - TEST_BT_HOST=127.0.0.1 TEST_BT_PORT=11300 TEST_MC_HOST=127.0.0.1 TEST_MC_PORT=11211
-  matrix:
-    - PHALCON_VERSION="2.0.9"
-    - PHALCON_VERSION="2.0.8"
-    - PHALCON_VERSION="2.0.7"
-    - PHALCON_VERSION="2.0.6"
-    - PHALCON_VERSION="2.0.5"
-    - PHALCON_VERSION="2.0.4"
-
-before_install:
-  - bash tests/_ci/setup_beanstalkd.sh
-  - beanstalkd -v
-  - beanstalkd -l ${TEST_BT_HOST} -p ${TEST_BT_PORT} & # start queue listener
-  - sleep 5 # give server some time to boot
-  - cd $TRAVIS_BUILD_DIR
-  - pecl channel-update pecl.php.net
-  - (CFLAGS="-O1 -g3 -fno-strict-aliasing"; pecl install yaml < /dev/null &)
-  - pecl install mongo < /dev/null &
-  - phpenv config-add tests/_ci/memcached.ini
-  - php -m
-
-install:
-  - composer self-update
-  - git clone -q --depth=1 https://github.com/phalcon/cphalcon.git -b phalcon-v${PHALCON_VERSION}
-  - (cd cphalcon/ext; export CFLAGS="-g3 -O1 -fno-delete-null-pointer-checks -Wall"; phpize &> /dev/null && ./configure --silent --enable-phalcon &> /dev/null && make --silent -j4 > /dev/null && make --silent install && phpenv config-add ../unit-tests/ci/phalcon.ini &> /dev/null)
-  - php -r 'echo \Phalcon\Version::get()."\n";'
-  - travis_retry composer install --prefer-source --no-interaction
-  - travis_retry composer require "duncan3dc/fork-helper":"*"
-
-before_script:
-  - mysql -e 'create database incubator_tests charset=utf8mb4 collate=utf8mb4_unicode_ci;'
-
-script:
-  - vendor/bin/phpcs --standard=PSR2 --colors --extensions=php --encoding=utf-8 Library/
-  - vendor/bin/codecept build
-  - vendor/bin/codecept run --coverage-text
+    - CC="ccache gcc"
+    - PHALCON_VERSION=v3.4.0
 
 addons:
   apt:
     packages:
-      - libyaml-dev
+      - beanstalkd
+  hosts:
+    - db
+    - incubator.local
+
+before_install:
+  - phpenv config-rm xdebug.ini || true
+  - if [ -n "$GH_TOKEN" ]; then composer config github-oauth.github.com $GH_TOKEN; fi;
+  - export PHP_MAJOR="$(`phpenv which php` -r 'echo phpversion();' | cut -d '.' -f 1)"
+  - bash tests/_ci/pear_setup.sh
+  - bash tests/_ci/install_prereqs_$PHP_MAJOR.sh
+
+install:
+  - bash $TRAVIS_BUILD_DIR/tests/_ci/install_phalcon.sh
+  - cd $TRAVIS_BUILD_DIR
+  - travis_retry composer install --prefer-dist --no-interaction --no-ansi --no-progress --optimize-autoloader --dev --no-suggest
+  - phpenv config-add $TRAVIS_BUILD_DIR/tests/_ci/ci.ini
+  - ls -al `$(phpenv which php-config) --extension-dir`
+  - $(phpenv which php) -v
+  - $(phpenv which php) -m
+
+before_script:
+  # Create database and user
+  - echo 'CREATE DATABASE incubator CHARSET=utf8 COLLATE=utf8_unicode_ci' | mysql -u root
+  - echo "CREATE USER 'incubator'@'%' IDENTIFIED BY 'secret'" | mysql -u root
+  - echo "GRANT ALL PRIVILEGES ON incubator.* TO 'incubator'@'%' WITH GRANT OPTION" | mysql -u root
+  - cat ${TRAVIS_BUILD_DIR}/tests/_data/dump.sql | mysql -u root incubator
+
+script:
+  - vendor/bin/phpcs
+  - vendor/bin/codecept build
+  - vendor/bin/codecept run -v tests/unit
+  - '[[ "$PHP_MAJOR" == "7" ]] || vendor/bin/codecept run -v tests/unit5x'
+
+after_failure:
+    - for file in `ls ./tests/_output`; do [ -f ./tests/_output/$file ] && cat ./tests/_output/$file; done;
 
 notifications:
   email:
-    recipients:
-      - serghei@phalconphp.com
-    on_success: change
-    on_failure: always
+    on_success: never
+    on_failure: never

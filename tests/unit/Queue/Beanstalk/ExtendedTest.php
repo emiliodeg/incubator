@@ -2,17 +2,16 @@
 
 namespace Phalcon\Tests\Queue\Beanstalk;
 
-use Phalcon\Queue\Beanstalk\Extended;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 use Phalcon\Queue\Beanstalk\Job;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Queue\Beanstalk\Extended;
 
 /**
  * \Phalcon\Tests\Queue\Beanstalk\ExtendedTest
  * Tests for Phalcon\Queue\Beanstalk\Extended component
  *
- * @copyright (c) 2011-2015 Phalcon Team
- * @link      http://www.phalconphp.com
+ * @copyright (c) 2011-2017 Phalcon Team
+ * @link      https://phalconphp.com
  * @author    Nikita Vershinin <endeveit@gmail.com>
  * @package   Phalcon\Tests\Queue\Beanstalk
  * @group     Beanstalk
@@ -27,16 +26,9 @@ use UnitTester;
 class ExtendedTest extends Test
 {
     const TUBE_NAME = 'test-tube';
-    const JOB_CLASS = 'Phalcon\Queue\Beanstalk\Job';
 
     /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * @var \Phalcon\Queue\Beanstalk\Extended
+     * @var Extended
      */
     protected $client = null;
 
@@ -49,41 +41,34 @@ class ExtendedTest extends Test
      */
     protected function _before()
     {
-        if (!defined('TEST_BT_HOST') || !defined('TEST_BT_PORT')) {
-            $this->markTestSkipped('TEST_BT_HOST and/or TEST_BT_PORT env variables are not defined');
-        }
-
         $this->client = new Extended([
-            'host'   => TEST_BT_HOST,
-            'port'   => TEST_BT_PORT,
+            'host'   => env('TEST_BT_HOST', 6379),
+            'port'   => env('TEST_BT_PORT', 11300),
             'prefix' => 'PHPUnit_',
         ]);
 
         if (!$this->client->connect()) {
             $this->markTestSkipped(sprintf(
                 'Need a running beanstalkd server at %s:%d',
-                TEST_BT_HOST,
-                TEST_BT_PORT
+                env('TEST_BT_HOST', 6379),
+                env('TEST_BT_PORT', 11300)
             ));
         }
 
         $this->shmKey = round(microtime(true) * 1000);
     }
 
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     public function testShouldPutAndReserve()
     {
-        $this->client->putInTube(self::TUBE_NAME, 'testPutInTube');
+        $jobId = $this->client->putInTube(self::TUBE_NAME, 'testPutInTube');
+
+        $this->assertNotEquals(false, $jobId);
+
         $job = $this->client->reserveFromTube(self::TUBE_NAME);
 
         $this->assertNotEmpty($job);
-        $this->assertInstanceOf(self::JOB_CLASS, $job);
+        $this->assertInstanceOf(Job::class, $job);
+        $this->assertEquals($jobId, $job->getId());
         $this->assertTrue($job->delete());
     }
 
@@ -96,6 +81,23 @@ class ExtendedTest extends Test
 
         $this->assertNotEmpty($tubes);
         $this->assertContains(self::TUBE_NAME, $tubes);
+
+        // Cleanup tubes
+        foreach ($tubes as $tube) {
+            $isRunning = true;
+
+            $this->client->watch($tube);
+
+            do {
+                $job = $this->client->reserve(0.1);
+
+                if ($job) {
+                    $this->assertTrue($job->delete());
+                } else {
+                    $isRunning = false;
+                }
+            } while ($isRunning);
+        }
     }
 
     /**
@@ -103,12 +105,20 @@ class ExtendedTest extends Test
      */
     public function testShouldDoWork()
     {
-        if (!class_exists('\duncan3dc\Helpers\Fork')) {
+        if (!class_exists('\duncan3dc\Helpers\Fork') && !class_exists('\duncan3dc\Forker\Fork')) {
             $this->markTestSkipped(sprintf(
-                '%s used as a dependency \duncan3dc\Helpers\Fork. You can install it by using' .
-                'composer require "duncan3dc/fork-helper":"*"',
+                '%s uses fork-helper as a dependency. You can install it by running: ' .
+                'composer require duncan3dc/fork-helper',
                 get_class($this->client)
             ));
+        }
+
+        $memory = shmop_open($this->shmKey, 'c', 0644, $this->shmLimit);
+
+        if (false === $memory) {
+            $this->markTestSkipped('Cannot create shared memory block');
+        } else {
+            shmop_close($memory);
         }
 
         $expected = [
@@ -116,23 +126,45 @@ class ExtendedTest extends Test
             'test-tube-2' => '2',
         ];
 
-        foreach ($expected as $tube => $value) {
-            $this->client->addWorker($tube, function (Job $job) {
-                // Store string "test-tube-%JOB_BODY%" in shared memory
-                $memory  = shmop_open($this->shmKey, 'c', 0644, $this->shmLimit);
-                $output  = trim(shmop_read($memory, 0, $this->shmLimit));
-                $output .= sprintf("\ntest-tube-%s", $job->getBody());
-
-                shmop_write($memory, $output, 0);
-                shmop_close($memory);
-
-                exit(1);
-            });
-
-            $this->client->putInTube($tube, $value);
+        // Check if we are using Fork1.0 (php < 7)
+        if (class_exists('duncan3dc\Helpers\Fork')) {
+            $fork = new \duncan3dc\Helpers\Fork;
+        } else {
+            $fork = new \duncan3dc\Forker\Fork;
         }
 
-        $this->client->doWork();
+        $that = $this;
+
+        $fork->call(function () use ($expected, $that) {
+            foreach ($expected as $tube => $value) {
+                $that->client->addWorker($tube, function (Job $job) {
+                    // Store string "test-tube-%JOB_BODY%" in a shared memory
+                    $memory  = shmop_open($this->shmKey, 'c', 0644, $this->shmLimit);
+                    $output  = trim(shmop_read($memory, 0, $this->shmLimit));
+                    $output .= sprintf("\ntest-tube-%s", $job->getBody());
+
+                    shmop_write($memory, $output, 0);
+                    shmop_close($memory);
+
+                    throw new \RuntimeException('Forced exception to stop worker');
+                });
+
+                $that->assertNotEquals(false, $that->client->putInTube($tube, $value));
+            }
+
+            $that->client->doWork();
+
+            exit(0);
+        });
+
+        $reflectionFork    = new \ReflectionClass($fork);
+        $reflectionThreads = $reflectionFork->getProperty('threads');
+        $reflectionThreads->setAccessible(true);
+
+        sleep(2);
+
+        $reflectionThreads->setValue($fork, []);
+        unset($fork);
 
         $memory = shmop_open($this->shmKey, 'a', 0, 0);
         $output = shmop_read($memory, 0, $this->shmLimit);
@@ -142,10 +174,20 @@ class ExtendedTest extends Test
 
         $this->assertNotEmpty($output);
 
-        // Compare number of items in expected list with lines in shared memory
+        $actual = explode("\n", trim($output));
+
         $this->assertEquals(
             count($expected),
-            count(array_unique(explode("\n", trim($output))))
+            count($actual),
+            sprintf(
+                "Compare number of items in expected list with lines in shared memory failed.\nExpected: %s\nActual: %s\n",
+                json_encode($expected, JSON_PRETTY_PRINT),
+                json_encode($actual, JSON_PRETTY_PRINT)
+            )
         );
+
+        foreach ($actual as $value) {
+            $this->assertArrayHasKey($value, $expected);
+        }
     }
 }

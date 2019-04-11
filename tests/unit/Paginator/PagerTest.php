@@ -5,14 +5,13 @@ namespace Phalcon\Tests\Paginator;
 use Phalcon\Paginator\Pager;
 use Mockery;
 use stdClass;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
  * \Phalcon\Tests\Paginator\PagerTest
  * Tests the Phalcon\Paginator\Pager component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Nikita Vershinin <endeveit@gmail.com>
  * @package   Phalcon\Tests\Paginator
@@ -28,27 +27,6 @@ use UnitTester;
 class PagerTest extends Test
 {
     const BUILDER_CLASS = 'Phalcon\Paginator\Adapter\QueryBuilder';
-
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * executed before each test
-     */
-    protected function _before()
-    {
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-        Mockery::close();
-    }
 
     public function testCreatingPagerObjectWithoutOptionsShouldConstructObject()
     {

@@ -7,14 +7,13 @@ use Phalcon\Acl\Adapter\Memory as MemoryAdapter;
 use Phalcon\Acl\Factory\Memory as MemoryFactory;
 use Phalcon\Config\Adapter\Ini;
 use Phalcon\Config;
-use Codeception\TestCase\Test;
-use UnitTester;
+use Phalcon\Test\Codeception\UnitTestCase as Test;
 
 /**
  * \Phalcon\Test\Acl\Factory\MemoryTest
  * Tests for Phalcon\Acl\Factory\Memory component
  *
- * @copyright (c) 2011-2015 Phalcon Team
+ * @copyright (c) 2011-2016 Phalcon Team
  * @link      http://www.phalconphp.com
  * @author    Nemanja Ognjanovic <nemanja@ognjanovic.me>
  * @package   Phalcon\Test\Acl\Factory
@@ -29,26 +28,6 @@ use UnitTester;
  */
 class MemoryTest extends Test
 {
-    /**
-     * UnitTester Object
-     * @var UnitTester
-     */
-    protected $tester;
-
-    /**
-     * executed before each test
-     */
-    protected function _before()
-    {
-    }
-
-    /**
-     * executed after each test
-     */
-    protected function _after()
-    {
-    }
-
     public function testFactoryShouldCreateMemoryAclObjectFromAclConfigurationWithAllOptions()
     {
         $config = new Ini(INCUBATOR_FIXTURES . 'Acl/acl.ini');
